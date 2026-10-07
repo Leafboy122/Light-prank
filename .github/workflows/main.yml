@@ -1,0 +1,79 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Reconstruct project structure
+        run: |
+          echo "Converting flat files to proper folders..."
+
+          mkdir -p app/src/main/java/com/lestexec
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+          mkdir -p gradle/wrapper
+
+          mv -f app__build.gradle app/build.gradle || true
+          mv -f app__proguard-rules.pro app/proguard-rules.pro || true
+          mv -f app__src__main__AndroidManifest.xml app/src/main/AndroidManifest.xml || true
+          mv -f app__src__main__java__com__lestexec__MainActivity.java app/src/main/java/com/lestexec/MainActivity.java || true
+          mv -f app__src__main__res__drawable__bg_rounded_button.xml app/src/main/res/drawable/bg_rounded_button.xml || true
+          mv -f app__src__main__res__layout__activity_main.xml app/src/main/res/layout/activity_main.xml || true
+          mv -f app__src__main__res__values__colors.xml app/src/main/res/values/colors.xml || true
+          mv -f app__src__main__res__values__strings.xml app/src/main/res/values/strings.xml || true
+          mv -f app__src__main__res__values__styles.xml app/src/main/res/values/styles.xml || true
+
+          # Remove broken wrapper
+          rm -f gradle/wrapper/gradle-wrapper.jar gradlew gradlew.bat || true
+
+          echo "=== Project structure ==="
+          find . -type f | head -40
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+          packages: 'platforms;android-34 build-tools;34.0.0 platform-tools'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate Gradle Wrapper
+        run: |
+          gradle wrapper --gradle-version 8.7
+          chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: Flatten APK output
+        run: |
+          mkdir -p apk-output
+          find app/build/outputs/apk/debug -name "*.apk" -exec cp {} apk-output/ \;
+          echo "=== Flattened output ==="
+          ls -la apk-output/
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: lestExec-APK
+          path: apk-output/*.apk
+          retention-days: 30
+          if-no-files-found: warn
