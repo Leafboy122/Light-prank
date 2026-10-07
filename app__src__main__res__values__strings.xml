@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">lestExec</string>
+    <string name="button_label">DO NOT PRESS</string>
+    <string name="subtitle">you know you want to</string>
+</resources>
